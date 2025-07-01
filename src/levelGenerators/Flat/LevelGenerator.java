@@ -18,7 +18,8 @@ public class LevelGenerator implements MarioLevelGenerator {
 
         // On place des blocs de sol ('X') sur toute la largeur
         for (int x = 0; x < model.getWidth(); x++) {
-            model.setBlock(x, groundHeight, 'X');
+            model.setBlock(x, groundHeight, MarioLevelModel.GROUND);
+            //model.setBlock(x, groundHeight - 10, MarioLevelModel.COIN);
         }
 
         return model.getMap();
