@@ -5,67 +5,94 @@ import os
 import argparse
 import numpy as np
 import tensorflow as tf
-from .gan.model_keras import build_generator, build_discriminator  # import relatif
+
+from .gan.model_keras import build_generator, build_discriminator
+from .data_utils      import load_index2str, make_dataset
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Mini‐entraînement Keras pour MarioGAN")
-    p.add_argument("--epochs",     type=int, default=3,  help="Nombre d’epochs")
-    p.add_argument("--batch-size", type=int, default=16, help="Taille de batch")
-    p.add_argument("--latent-dim", type=int, default=32, help="Dimension du vecteur latent")
-    p.add_argument("--out-dir",    type=str, default=os.path.dirname(__file__),
-                   help="Dossier de sortie (sample + checkpoints)")
+    p = argparse.ArgumentParser("Train GAN sur niveaux Mario")
+    p.add_argument("--epochs",      type=int,   default=50,
+                   help="Nombre d'époques d'entraînement")
+    p.add_argument("--batch-size",  type=int,   default=16,
+                   help="Taille des batchs")
+    p.add_argument("--latent-dim",  type=int,   default=32,
+                   help="Dimension du vecteur latent")
+    p.add_argument("--orig-glob",   type=str,   default="levels/original/*.txt",
+                   help="Glob pour charger les .txt originaux")
+    p.add_argument("--width",       type=int,   default=256,
+                   help="Largeur normalisée des niveaux")
+    p.add_argument("--out-dir",     type=str,   default="models/gan_lsi/checkpoints",
+                   help="Répertoire de sortie pour poids & modèles")
     return p.parse_args()
 
-def train(epochs, batch_size, latent_dim, out_dir):
-    # 1) Prépare les dossiers
+def train(epochs, batch_size, latent_dim, orig_glob, width, out_dir):
     os.makedirs(out_dir, exist_ok=True)
-    ckpt_dir = os.path.join(out_dir, "checkpoints")
-    os.makedirs(ckpt_dir, exist_ok=True)
 
-    # 2) Construit G et D
-    G = build_generator(latent_dim=latent_dim)
+    # 1) Charge mapping et crée dataset
+    idx2str_path = os.path.join(os.path.dirname(__file__), "index2str.json")
+    rev_map   = load_index2str(idx2str_path)
+    n_symbols = len(rev_map)
+    dataset   = make_dataset(orig_glob, rev_map, batch_size, W=width)
+
+    # 2) Déduit la hauteur H d’après un batch
+    sample = next(iter(dataset))
+    H, W, C = sample.shape[1:]  # (batch, H, W, C)
+
+    # 3) Construit Generator + Discriminator
+    G = build_generator(latent_dim=latent_dim,
+                        out_shape=(H, W),
+                        n_symbols=C)
     D = build_discriminator()
+
+    # 4) Compile D
     D.compile(optimizer=tf.keras.optimizers.RMSprop(5e-5),
               loss="binary_crossentropy")
 
-    # 3) Monte le GAN combiné
+    # 5) Compose le GAN par API fonctionnelle
     z = tf.keras.Input(shape=(latent_dim,))
-    gan_out = D(G(z))
-    GAN = tf.keras.Model(z, gan_out)
+    fake = G(z)
+    valid = D(fake)
+    GAN = tf.keras.Model(z, valid, name="GAN")
     GAN.compile(optimizer=tf.keras.optimizers.RMSprop(5e-5),
                 loss="binary_crossentropy")
 
-    # 4) Dataset factice
-    real_shape = G.output_shape[1:]  # e.g. (16,256,1)
-    real_data  = np.random.randn(100, *real_shape).astype("float32")
-    dataset    = tf.data.Dataset.from_tensor_slices(real_data)
-    dataset    = dataset.shuffle(100).batch(batch_size)
-
-    # 5) Entraînement
+    # 6) Boucle d’entraînement
     for epoch in range(1, epochs+1):
-        for real_batch in dataset:
-            # 5a) Entraîne D sur vrais
-            D.train_on_batch(real_batch, np.ones((real_batch.shape[0],1)))
-            # 5b) Entraîne D sur fake
-            z_sample   = np.random.randn(real_batch.shape[0], latent_dim).astype("float32")
-            fake_batch = G.predict(z_sample, verbose=0)
-            D.train_on_batch(fake_batch, np.zeros((real_batch.shape[0],1)))
-            # 5c) Entraîne G pour tromper D
+        for real in dataset:
+            D.train_on_batch(real, np.ones((real.shape[0],1)))
+            zf = np.random.randn(real.shape[0], latent_dim).astype("float32")
+            fakeb = G.predict(zf, verbose=0)
+            D.train_on_batch(fakeb, np.zeros((fakeb.shape[0],1)))
             z2 = np.random.randn(batch_size, latent_dim).astype("float32")
             GAN.train_on_batch(z2, np.ones((batch_size,1)))
         print(f"Epoch {epoch}/{epochs} terminé")
 
-    # 6) Sauvegarde un échantillon
-    sample = G.predict(np.random.randn(1, latent_dim).astype("float32"))
-    sample_path = os.path.join(out_dir, "sample_level.npy")
-    np.save(sample_path, sample)
-    print("Échantillon sauvegardé dans", sample_path)
+    # 7) Sauvegarde échantillon + poids
+    sample_out = G.predict(np.random.randn(1, latent_dim).astype("float32"))
+    np.save(os.path.join(out_dir, "sample_level.npy"), sample_out)
+    weights_path = os.path.join(out_dir, "gan_final.weights.h5")
+    G.save_weights(weights_path)
+    print("Échantillon et poids sauvegardés dans", out_dir)
 
-    # 7) Sauvegarde les poids (HDF5, extension .weights.h5)
-    weights_path = os.path.join(ckpt_dir, "gan_final.weights.h5")
-    G.save_weights(weights_path)  # Keras déduit le format de l’extension
-    print("Poids du générateur sauvegardés dans", weights_path)
+    # 8) Export SavedModel pour Java
+    saved_model_dir = os.path.join(os.path.dirname(__file__), "gan_savedmodel")
+    tf.keras.models.save_model(
+        G,
+        saved_model_dir,
+        overwrite=True,
+        include_optimizer=False,
+        save_format="tf"
+    )
+    print("SavedModel exporté dans", saved_model_dir)
+
 
 if __name__ == "__main__":
     args = parse_args()
-    train(args.epochs, args.batch_size, args.latent_dim, args.out_dir)
+    train(
+        args.epochs,
+        args.batch_size,
+        args.latent_dim,
+        args.orig_glob,
+        args.width,
+        args.out_dir
+    )
