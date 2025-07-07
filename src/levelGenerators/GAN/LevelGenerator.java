@@ -30,7 +30,6 @@ public class LevelGenerator implements MarioLevelGenerator {
     @SuppressWarnings("unchecked")
     public LevelGenerator() {
         try {
-            // Chargement du modèle TensorFlow SavedModel
             model = SavedModelBundle.load(MODEL_PATH, "serve");
             random = new Random();
 
@@ -70,15 +69,14 @@ public class LevelGenerator implements MarioLevelGenerator {
                     .fetch("StatefulPartitionedCall") // Nom du node à adapter si besoin
                     .run().get(0);
 
+            // Récupération des valeurs via getFloat
             TFloat32 outT = (TFloat32) output;
-            var nd = outT.asNdArray(); // NDArray 4D [1, HEIGHT, WIDTH, nSymbols]
-
             for (int y = 0; y < HEIGHT; y++) {
                 for (int x = 0; x < WIDTH; x++) {
                     int maxIdx = 0;
-                    float maxVal = nd.getFloat(0, y, x, 0);
+                    float maxVal = outT.getFloat(0, y, x, 0);
                     for (int k = 1; k < nSymbols; k++) {
-                        float val = nd.getFloat(0, y, x, k);
+                        float val = outT.getFloat(0, y, x, k);
                         if (val > maxVal) {
                             maxVal = val;
                             maxIdx = k;
