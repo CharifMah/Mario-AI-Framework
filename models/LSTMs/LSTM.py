@@ -10,7 +10,7 @@ from keras.layers import LSTM, Dense, Dropout, Input
 from keras.utils import to_categorical
 
 # === PARAMÈTRES ===
-SEQUENCE_LENGTH = 10
+SEQUENCE_LENGTH = 100
 EPOCHS = 5
 BATCH_SIZE = 8
 MODEL_PATH = "mario_lstm_savedmodel"
