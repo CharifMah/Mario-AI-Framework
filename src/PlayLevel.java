@@ -6,21 +6,33 @@ import engine.core.MarioGame;
 import engine.core.MarioResult;
 
 public class PlayLevel {
-    public static void printResults(MarioResult result) {
-        System.out.println("****************************************************************");
-        System.out.println("Game Status: " + result.getGameStatus().toString() +
-                " Percentage Completion: " + result.getCompletionPercentage());
-        System.out.println("Lives: " + result.getCurrentLives() + " Coins: " + result.getCurrentCoins() +
-                " Remaining Time: " + (int) Math.ceil(result.getRemainingTime() / 1000f));
-        System.out.println("Mario State: " + result.getMarioMode() +
-                " (Mushrooms: " + result.getNumCollectedMushrooms() + " Fire Flowers: " + result.getNumCollectedFireflower() + ")");
-        System.out.println("Total Kills: " + result.getKillsTotal() + " (Stomps: " + result.getKillsByStomp() +
-                " Fireballs: " + result.getKillsByFire() + " Shells: " + result.getKillsByShell() +
-                " Falls: " + result.getKillsByFall() + ")");
-        System.out.println("Bricks: " + result.getNumDestroyedBricks() + " Jumps: " + result.getNumJumps() +
-                " Max X Jump: " + result.getMaxXJump() + " Max Air Time: " + result.getMaxJumpAirTime());
-        System.out.println("****************************************************************");
-    }
+	public static void printResults(MarioResult result) {
+	    System.out.println("============================================================");
+	    System.out.println("                      MARIO GAME RESULTS                    ");
+	    System.out.println("============================================================");
+	    System.out.printf("%-25s : %s\n", "Game Status", result.getGameStatus());
+	    System.out.printf("%-25s : %.1f %%\n", "Completion", 100 * result.getCompletionPercentage());
+	    System.out.printf("%-25s : %d\n", "Lives", result.getCurrentLives());
+	    System.out.printf("%-25s : %d\n", "Coins", result.getCurrentCoins());
+	    System.out.printf("%-25s : %ds\n", "Time Left", (int)Math.ceil(result.getRemainingTime() / 1000f));
+	    System.out.println("------------------------------------------------------------");
+	    System.out.printf("%-25s : %d\n", "Mushrooms Collected", result.getNumCollectedMushrooms());
+	    System.out.printf("%-25s : %d\n", "Fire Flowers Collected", result.getNumCollectedFireflower());
+	    System.out.printf("%-25s : %d\n", "Coins Collected (tiles)", result.getNumCollectedTileCoins());
+	    System.out.println("------------------------------------------------------------");
+	    System.out.printf("%-25s : %d\n", "Bricks Destroyed", result.getNumDestroyedBricks());
+	    System.out.printf("%-25s : %d\n", "Jumps", result.getNumJumps());
+	    System.out.printf("%-25s : %.2f\n", "Max X Jump", result.getMaxXJump());
+	    System.out.printf("%-25s : %d\n", "Max Jump Air Time", result.getMaxJumpAirTime());
+	    System.out.println("------------------------------------------------------------");
+	    System.out.printf("%-25s : %d\n", "Kills (Total)", result.getKillsTotal());
+	    System.out.printf("%-25s : %d\n", "Kills by Stomp", result.getKillsByStomp());
+	    System.out.printf("%-25s : %d\n", "Kills by Fire", result.getKillsByFire());
+	    System.out.printf("%-25s : %d\n", "Kills by Shell", result.getKillsByShell());
+	    System.out.printf("%-25s : %d\n", "Kills by Fall", result.getKillsByFall());
+	    System.out.println("============================================================");
+	}
+
 
     public static String getLevel(String filepath) {
         String content = "";
@@ -34,6 +46,6 @@ public class PlayLevel {
     public static void main(String[] args) {
         MarioGame game = new MarioGame();
         // printResults(game.playGame(getLevel("../levels/original/lvl-1.txt"), 200, 0));
-        printResults(game.runGame(new agents.robinBaumgarten.Agent(), getLevel("./levels/original/lvl-1.txt"), 20, 0, true));
+        printResults(game.runGame(new agents.robinBaumgarten.Agent(), getLevel("./levels/notch/lvl-1.txt"), 20, 0, true));
     }
 }

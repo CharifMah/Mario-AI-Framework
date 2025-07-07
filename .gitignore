@@ -1,3 +1,16 @@
+*.h5
+*.pb
+
+variables
+
+# Dossiers de modèles exportés
+saved_model/
+*/saved_model/
+*/saved_model.pb
+*/variables/
+*/assets/
+fingerprint.pb
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

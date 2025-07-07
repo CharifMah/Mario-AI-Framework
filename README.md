@@ -60,6 +60,7 @@ If you want to play the level by yourself or change the AI playing agent check t
   ```
   cd /models/LSTMs
   source keras_venv/bin/activate
+  saved_model_cli show --dir . --all
   ```
 
 
