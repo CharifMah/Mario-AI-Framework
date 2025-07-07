@@ -12,7 +12,7 @@ from keras.utils import to_categorical
 # === PARAMÈTRES ===
 SEQUENCE_LENGTH = 10
 EPOCHS = 5
-BATCH_SIZE = 16
+BATCH_SIZE = 8
 MODEL_PATH = "mario_lstm_savedmodel"
 MAPPING_PATH = "char_mapping.json"
 DEFAULT_LEVEL_PATH = "../../levels/train1/"
