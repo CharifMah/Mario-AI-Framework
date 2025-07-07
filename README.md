@@ -56,6 +56,13 @@ String level = generator.getGeneratedLevel(new MarioLevelModel(150, 16), new Mar
 ```
 If you want to play the level by yourself or change the AI playing agent check the Planning Track subsection.
 
+#### LSTM env (Python)
+  ```
+  cd /models/LSTMs
+  source keras_venv/bin/activate
+  ```
+
+
 <h3 id="papers">Related Papers</h3>
 
 ------
