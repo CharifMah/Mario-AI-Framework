@@ -13,7 +13,7 @@ EPOCHS = 1  # Pour test rapide, augmente pour l'entraînement final
 BATCH_SIZE = 64
 MODEL_PATH = "mario_lstm_savedmodel"  # Dossier, pas .h5
 MAPPING_PATH = "char_mapping.json"
-DEFAULT_LEVEL_PATH = "../../levels/generated/FlatGroundGenerator"
+DEFAULT_LEVEL_PATH = "../../levels/notch/"
 
 def load_levels(path):
     """Charge une carte unique ou toutes les cartes d'un dossier."""
