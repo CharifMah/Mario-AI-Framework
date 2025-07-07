@@ -1,4 +1,6 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import numpy as np
 import json
 import sys
@@ -8,12 +10,12 @@ from keras.layers import LSTM, Dense, Dropout, Input
 from keras.utils import to_categorical
 
 # === PARAMÈTRES ===
-SEQUENCE_LENGTH = 100
-EPOCHS = 1  # Pour test rapide, augmente pour l'entraînement final
-BATCH_SIZE = 64
-MODEL_PATH = "mario_lstm_savedmodel"  # Dossier, pas .h5
+SEQUENCE_LENGTH = 10
+EPOCHS = 5
+BATCH_SIZE = 8
+MODEL_PATH = "mario_lstm_savedmodel"
 MAPPING_PATH = "char_mapping.json"
-DEFAULT_LEVEL_PATH = "../../levels/notch/"
+DEFAULT_LEVEL_PATH = "../../levels/train1/"
 
 def load_levels(path):
     """Charge une carte unique ou toutes les cartes d'un dossier."""
@@ -50,14 +52,15 @@ def prepare_sequences(level_text, sequence_length):
 
 def build_model(sequence_length, n_vocab):
     model = Sequential()
-    model.add(Input(shape=(sequence_length, 1)))
-    model.add(LSTM(256, return_sequences=True))
-    model.add(Dropout(0.2))
-    model.add(LSTM(256))
-    model.add(Dropout(0.2))
-    model.add(Dense(n_vocab, activation='softmax'))
+    model.add(Input(shape=(sequence_length, 1)))  # Entrée : séquence de longueur sequence_length, 1 feature par pas de temps
+    model.add(LSTM(256, return_sequences=True))   # 1ère couche LSTM, retourne toute la séquence
+    model.add(Dropout(0.2))                       # Dropout pour éviter le surapprentissage
+    model.add(LSTM(256))                          # 2ème couche LSTM, retourne la dernière sortie seulement
+    model.add(Dropout(0.2))                       # Dropout
+    model.add(Dense(n_vocab, activation='softmax'))  # Couche de sortie dense : une probabilité par tuile/caractère possible
     model.compile(loss='categorical_crossentropy', optimizer='adam')
     return model
+
 
 def main():
     # Utilise le chemin par défaut si aucun argument n'est donné
