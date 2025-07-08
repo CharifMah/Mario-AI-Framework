@@ -6,7 +6,7 @@ import engine.core.MarioGame;
 import engine.core.MarioResult;
 
 public class PlayLevel {
-	public static final String LevelPath = "./levels/generated/FlatGroundGenerator/10.txt";
+	public static final String LevelPath = "./levels/generated/GANGeneratorTF/5.txt";
 
 	public static void printResults(MarioResult result) {
 	    System.out.println("============================================================");
