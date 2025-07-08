@@ -35,7 +35,7 @@ strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else tf.distribute.
 # 2) Hyper-paramètres
 LATENT_DIM   = 32
 BATCH_SIZE   = 64 if gpus else 32
-EPOCHS       = 200
+EPOCHS       = 500
 LR_C         = 1e-5
 LR_G         = 3e-4
 N_CRITIC     = 5     # updates du critic par update du générateur
