@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import numpy as np
 import json
@@ -10,12 +10,12 @@ from keras.layers import LSTM, Dense, Dropout, Input
 from keras.utils import to_categorical
 
 # === PARAMÈTRES ===
-SEQUENCE_LENGTH = 100
-EPOCHS = 5000
-BATCH_SIZE = 128
+SEQUENCE_LENGTH = 10
+EPOCHS = 5
+BATCH_SIZE = 16
 MODEL_PATH = "mario_lstm_savedmodel"
 MAPPING_PATH = "char_mapping.json"
-DEFAULT_LEVEL_PATH = "../../levels/hopper/"
+DEFAULT_LEVEL_PATH = "../../levels/train1/"
 
 def load_levels(path):
     """Charge une carte unique ou toutes les cartes d'un dossier."""

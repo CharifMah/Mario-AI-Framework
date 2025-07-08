@@ -1,190 +1,156 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-gain_train_balanced_v5.py
+gan_tf_basic_improved_all_steps.py
 
-Même GAN, en forçant un dtype unique dès l’entrée du train_step
-pour éviter tout mélange float16/float32.
+Même GAN « classique » pour niveaux Mario, avec :
+ - Label smoothing (±30 %) et bruit (σ=0.07) sur les entrées du discriminateur
+ - 4 updates du générateur par update du discriminateur
+ - Learning rates séparés (D:1e-5, G:3e-4)
+ - Mixed precision si GPU
+ - MirroredStrategy multi-GPU
+ - XLA compilation du train_step
+ - tf.data pipeline optimisée
+ - Logging à chaque step
+ - Checkpoints en SavedModel format
 """
 import os
 import tensorflow as tf
+from datetime import datetime
+from data_utils import load_levels, build_vocabulary, encode_levels, save_mapping, HEIGHT, WIDTH
 
-from data_utils import (
-    load_levels,
-    build_vocabulary,
-    encode_levels,
-    save_mapping,
-    HEIGHT,
-    WIDTH
-)
-
-# 1) TF & GPU
-print("TensorFlow version :", tf.__version__)
+# 1) GPU & mixed precision
+print("TensorFlow:", tf.__version__)
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
+    for g in gpus:
+        tf.config.experimental.set_memory_growth(g, True)
     print("→ GPU détecté :", gpus)
-else:
-    print("→ Aucun GPU, CPU uniquement")
-
-# 2) Mixed precision
+policy = 'mixed_float16' if gpus else 'float32'
 from tensorflow.keras import mixed_precision
-use_fp16 = bool(gpus)
-policy = mixed_precision.Policy('mixed_float16' if use_fp16 else 'float32')
 mixed_precision.set_global_policy(policy)
-print("→ Politique de précision :", policy)
+print("→ DType policy :", policy)
+strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else tf.distribute.get_strategy()
 
-# 3) Strategy
-strategy = (tf.distribute.MirroredStrategy() if len(gpus) > 1
-            else tf.distribute.get_strategy())
-if isinstance(strategy, tf.distribute.MirroredStrategy):
-    print("→ MirroredStrategy activée")
-
-# 4) Hyperparamètres
+# 2) Hyper-paramètres
 LATENT_DIM      = 32
-BATCH_SIZE      = 64 if use_fp16 else 32
-EPOCHS          = 1000
+BATCH_SIZE      = 64 if gpus else 32
+EPOCHS          = 500
 LR_D            = 1e-5
 LR_G            = 3e-4
 LABEL_SMOOTHING = 0.3
 NOISE_STDDEV    = 0.07
 GEN_UPDATES     = 4
+CKPT_FREQ       = 100       # checkpoint toutes les CKPT_FREQ époques
 
-# 5) Chargement données
+# 3) Data
 levels = load_levels(os.path.join("..","..","levels","hopper"))
-print(f"{len(levels)} niveaux chargés")
 vocab, c2i, i2c = build_vocabulary(levels)
+vocab_size = len(vocab)
+print(f"{len(levels)} niveaux chargés, vocab size = {vocab_size}")
 X = encode_levels(levels, c2i)
-X_onehot = tf.one_hot(X, len(vocab))
-print("One-hot shape:", X_onehot.shape)
+X = tf.one_hot(X, vocab_size)  # (N, H, W, V)
+dataset = (
+    tf.data.Dataset.from_tensor_slices(X)
+      .shuffle(1000)
+      .batch(BATCH_SIZE, drop_remainder=True)
+      .repeat()
+      .prefetch(tf.data.AUTOTUNE)
+)
+steps_per_epoch = len(levels) // BATCH_SIZE
 
-# 6) Modèles & optims
+# 4) Models & optimizers
 with strategy.scope():
     def make_generator():
-        m = tf.keras.Sequential([
-            tf.keras.layers.Input(LATENT_DIM),
-            tf.keras.layers.Dense(256, activation='relu'),
-            tf.keras.layers.Dense(HEIGHT*WIDTH*len(vocab)),
-            tf.keras.layers.Reshape((HEIGHT, WIDTH, len(vocab))),
-            tf.keras.layers.Softmax(axis=-1),
-        ], name="Generator")
-        return m
+        inp = tf.keras.Input((LATENT_DIM,))
+        x = tf.keras.layers.Dense(256, activation='relu')(inp)
+        x = tf.keras.layers.Dense(HEIGHT * WIDTH * vocab_size)(x)
+        x = tf.keras.layers.Reshape((HEIGHT, WIDTH, vocab_size))(x)
+        return tf.keras.Model(inp, tf.keras.layers.Softmax(axis=-1)(x), name="Generator")
 
     def make_discriminator():
-        m = tf.keras.Sequential([
-            tf.keras.layers.Input((HEIGHT, WIDTH, len(vocab))),
-            tf.keras.layers.Conv2D(64,3,padding='same',activation='relu'),
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(64,activation='relu'),
-            tf.keras.layers.Dense(1,activation='sigmoid'),
-        ], name="Discriminator")
-        return m
+        inp = tf.keras.Input((HEIGHT, WIDTH, vocab_size))
+        x = tf.keras.layers.Conv2D(64, 3, padding='same', activation='relu')(inp)
+        x = tf.keras.layers.Flatten()(x)
+        x = tf.keras.layers.Dense(64, activation='relu')(x)
+        return tf.keras.Model(inp, tf.keras.layers.Dense(1, activation='sigmoid')(x), name="Discriminator")
 
-    G = make_generator()
-    D = make_discriminator()
+    G   = make_generator()
+    D   = make_discriminator()
+    optD = tf.keras.optimizers.Adam(LR_D)
+    optG = tf.keras.optimizers.Adam(LR_G)
+    bce  = tf.keras.losses.BinaryCrossentropy(from_logits=False)
 
-    # optimizers
-    if use_fp16:
-        base_d = tf.keras.optimizers.Adam(LR_D)
-        base_g = tf.keras.optimizers.Adam(LR_G)
-        d_opt = mixed_precision.LossScaleOptimizer(base_d)
-        g_opt = mixed_precision.LossScaleOptimizer(base_g)
-    else:
-        d_opt = tf.keras.optimizers.Adam(LR_D)
-        g_opt = tf.keras.optimizers.Adam(LR_G)
+# 5) TensorBoard & Checkpointing
+logdir = os.path.join("logs", datetime.now().strftime("%Y%m%d-%H%M%S"))
+writer = tf.summary.create_file_writer(logdir)
+ckpt_dir = "checkpoints"
+os.makedirs(ckpt_dir, exist_ok=True)
 
-    bce = tf.keras.losses.BinaryCrossentropy()
-
-# 7) train_step
+# 6) train_step compilé XLA
 @tf.function(experimental_compile=True)
 def train_step(real_batch):
-    # On force tout en compute_dtype (float16 si mixed)
-    compute_dtype = policy.compute_dtype
-    real = tf.cast(real_batch, compute_dtype)
+    bs = tf.shape(real_batch)[0]
 
-    bs = tf.shape(real)[0]
-    # bruits & labels en compute_dtype
-    noise_d = tf.random.normal([bs, LATENT_DIM], dtype=compute_dtype)
-    real_noise = tf.random.normal(tf.shape(real),
-                                  stddev=NOISE_STDDEV,
-                                  dtype=compute_dtype)
-
-    # --- Update D ---
+    # — Discriminator —
+    noise = tf.random.normal((bs, LATENT_DIM), dtype=real_batch.dtype)
     with tf.GradientTape() as td:
-        fake = G(noise_d, training=True)
-        fake_noise = tf.random.normal(tf.shape(fake),
-                                      stddev=NOISE_STDDEV,
-                                      dtype=compute_dtype)
+        fake       = G(noise, training=True)
+        real_noisy = real_batch + tf.random.normal(
+            tf.shape(real_batch), stddev=NOISE_STDDEV, dtype=real_batch.dtype)
+        fake_noisy = fake + tf.random.normal(
+            tf.shape(fake), stddev=NOISE_STDDEV, dtype=fake.dtype)
+        real_lbl = tf.random.uniform((bs,1), 1.-LABEL_SMOOTHING, 1.0,
+                                     dtype=real_noisy.dtype)
+        fake_lbl = tf.random.uniform((bs,1), 0.0, LABEL_SMOOTHING,
+                                     dtype=fake_noisy.dtype)
+        real_out = D(real_noisy, training=True)
+        fake_out = D(fake_noisy, training=True)
+        lossD    = bce(real_lbl, real_out) + bce(fake_lbl, fake_out)
+    gradsD = td.gradient(lossD, D.trainable_variables)
+    optD.apply_gradients(zip(gradsD, D.trainable_variables))
 
-        real_noisy = real + real_noise
-        fake_noisy = fake + fake_noise
-
-        real_logits = D(real_noisy, training=True)
-        fake_logits = D(fake_noisy, training=True)
-
-        real_labels = tf.random.uniform(tf.shape(real_logits),
-                                        minval=1.-LABEL_SMOOTHING,
-                                        maxval=1.,
-                                        dtype=compute_dtype)
-        fake_labels = tf.random.uniform(tf.shape(fake_logits),
-                                        minval=0.,
-                                        maxval=LABEL_SMOOTHING,
-                                        dtype=compute_dtype)
-
-        d_loss = bce(real_labels, real_logits) + bce(fake_labels, fake_logits)
-        d_scaled = d_opt.get_scaled_loss(d_loss) if use_fp16 else d_loss
-
-    grads_d = td.gradient(d_scaled, D.trainable_variables)
-    if use_fp16:
-        grads_d = d_opt.get_unscaled_gradients(grads_d)
-    d_opt.apply_gradients(zip(grads_d, D.trainable_variables))
-
-    # --- Update G x GEN_UPDATES ---
-    total_g = tf.constant(0., dtype=compute_dtype)
+    # — Generator (x GEN_UPDATES) —
+    lossG = tf.constant(0.0, dtype=tf.float32)
     for _ in range(GEN_UPDATES):
-        noise_g = tf.random.normal([bs, LATENT_DIM], dtype=compute_dtype)
+        noise = tf.random.normal((bs, LATENT_DIM), dtype=real_batch.dtype)
         with tf.GradientTape() as tg:
-            fake2 = G(noise_g, training=True)
-            logits2 = D(fake2, training=True)
-            # on veut 1.0 labels
-            ones = tf.ones_like(logits2, dtype=compute_dtype)
-            g_loss = bce(ones, logits2)
-            total_g += g_loss
-            g_scaled = g_opt.get_scaled_loss(g_loss) if use_fp16 else g_loss
+            out    = D(G(noise, training=True), training=True)
+            loss16 = bce(tf.ones_like(out), out)
+        gradsG = tg.gradient(loss16, G.trainable_variables)
+        optG.apply_gradients(zip(gradsG, G.trainable_variables))
+        lossG += tf.cast(loss16, tf.float32)
 
-        grads_g = tg.gradient(g_scaled, G.trainable_variables)
-        if use_fp16:
-            grads_g = g_opt.get_unscaled_gradients(grads_g)
-        g_opt.apply_gradients(zip(grads_g, G.trainable_variables))
+    return lossD, lossG
 
-    return d_loss, total_g
-
-# 8) Pipeline tf.data
-ds = (tf.data.Dataset.from_tensor_slices(X_onehot)
-      .shuffle(1_000)
-      .batch(BATCH_SIZE, drop_remainder=True)
-      .cache()
-      .repeat()
-      .prefetch(tf.data.AUTOTUNE))
-steps = len(X) // BATCH_SIZE
-it = iter(ds)
-
-# 9) Warm-up
-print("🔄 Warm-up…")
+# 7) Warm-up
+print("🔄 Warm-up compilation…")
+it = iter(dataset)
 _ = train_step(next(it))
-print("✅ Warm-up OK")
+print("✅ Warm-up terminé — démarrage entraînement.")
 
-# 10) Training loop
-for ep in range(1, EPOCHS+1):
-    for st in range(1, steps+1):
-        d_l, g_l = train_step(next(it))
-        print(f"Epoch {ep}/{EPOCHS} | step {st}/{steps} "
-              f"| d_loss={d_l:.4f} | g_loss={g_l:.4f}")
-    print(f"→ Fin époque {ep}")
+# 8) Boucle d’entraînement
+global_step = 0
+for epoch in range(1, EPOCHS+1):
+    for step in range(1, steps_per_epoch+1):
+        global_step += 1
+        real_batch = next(it)
+        lossD, lossG = train_step(real_batch)
 
-# 11) Save
-print("Sauvegarde…")
-G.save("gan_savedmodel")
+        # log TensorBoard + console à chaque step
+        with writer.as_default():
+            tf.summary.scalar("lossD", lossD, step=global_step)
+            tf.summary.scalar("lossG", lossG, step=global_step)
+        print(f"Epoch {epoch}/{EPOCHS} · step {step}/{steps_per_epoch} "
+              f"(global {global_step}) · d={lossD:.4f} · g={lossG:.4f}")
+
+    # checkpoint en SavedModel (identique à votre ancien G.save)
+    if epoch % CKPT_FREQ == 0 or epoch == EPOCHS:
+        ckpt_path = os.path.join(ckpt_dir, f"G_epoch_{epoch}")
+        G.save(ckpt_path)
+        print(f"→ Checkpoint ép {epoch} sauvegardé dans {ckpt_path}")
+
+# 9) Sauvegarde finale
+G.save("gan_savedmodel")              # crée le dossier gan_savedmodel/
 save_mapping(c2i, i2c, "char_mapping.json")
-print("Terminé.")
+print("✔️ Entraînement terminé. Modèle et mapping sauvegardés.")
