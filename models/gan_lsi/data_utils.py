@@ -1,62 +1,44 @@
-#!/usr/bin/env python3
-# models/gan_lsi/data_utils.py
+# data_utils.py
 
-import json
-import glob
 import os
 import numpy as np
-import tensorflow as tf
+import json
 
-def load_index2str(path):
-    """
-    Charge index2str.json et renvoie un dict char→int.
-    """
-    with open(path, 'r', encoding='utf-8') as f:
-        idx2str = json.load(f)
-    return {v: int(k) for k, v in idx2str.items()}
+HEIGHT = 16
+WIDTH = 200
 
+def load_levels(levels_path):
+    levels = []
+    for fname in os.listdir(levels_path):
+        if fname.endswith('.txt'):
+            with open(os.path.join(levels_path, fname), "r") as f:
+                lines = [l.rstrip('\n') for l in f.readlines()]
+                if len(lines) != HEIGHT:
+                    continue  # skip wrong shape
+                lines = [line.ljust(WIDTH, '-')[:WIDTH] for line in lines]
+                levels.append(lines)
+    return levels
 
-def txt_to_onehot(path, rev_map, n_symbols, W=256):
-    """
-    Lit un .txt Mario et renvoie un array one-hot shape (H, W, n_symbols).
-    
-    - Tronque ou complète chaque ligne à largeur W.
-    - rev_map: mapping char→indice.
-    - n_symbols: taille de l’alphabet.
-    """
-    lines = open(path, 'r', encoding='utf-8').read().splitlines()
-    H = len(lines)
-    onehot = np.zeros((H, W, n_symbols), dtype='float32')
-    for i, line in enumerate(lines):
-        # Tronquer ou compléter
-        if len(line) < W:
-            line = line + '-' * (W - len(line))
-        else:
-            line = line[:W]
-        for j, ch in enumerate(line):
-            idx = rev_map.get(ch, rev_map.get('-', 0))
-            onehot[i, j, idx] = 1.0
-    return onehot
+def build_vocabulary(levels):
+    chars = set()
+    for level in levels:
+        for row in level:
+            chars.update(row)
+    vocab = sorted(list(chars))
+    char_to_int = {c: i for i, c in enumerate(vocab)}
+    int_to_char = {i: c for i, c in enumerate(vocab)}
+    return vocab, char_to_int, int_to_char
 
+def encode_levels(levels, char_to_int):
+    encoded = []
+    for level in levels:
+        arr = np.zeros((HEIGHT, WIDTH), dtype=int)
+        for i, row in enumerate(level):
+            for j, c in enumerate(row):
+                arr[i, j] = char_to_int.get(c, 0)
+        encoded.append(arr)
+    return np.array(encoded)
 
-def make_dataset(txt_glob, rev_map, batch_size=16, W=256):
-    """
-    Construit un tf.data.Dataset de one-hot arrays uniforme.
-    """
-    files = glob.glob(txt_glob, recursive=True)
-    n_symbols = len(rev_map)
-
-    def gen():
-        for p in files:
-            yield txt_to_onehot(p, rev_map, n_symbols, W)
-
-    # On prend la hauteur H du premier fichier
-    sample = txt_to_onehot(files[0], rev_map, n_symbols, W)
-    H = sample.shape[0]
-
-    output_shape = (H, W, n_symbols)
-    ds = tf.data.Dataset.from_generator(
-        gen,
-        output_signature=tf.TensorSpec(shape=output_shape, dtype=tf.float32)
-    )
-    return ds.shuffle(len(files)).batch(batch_size).prefetch(2)
+def save_mapping(char_to_int, int_to_char, path):
+    with open(path, "w") as f:
+        json.dump({'char_to_int': char_to_int, 'int_to_char': int_to_char}, f)
