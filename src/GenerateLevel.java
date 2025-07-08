@@ -11,7 +11,9 @@ import engine.core.MarioResult;
 import engine.core.MarioTimer;
 
 public class GenerateLevel {
-    public static void printResults(MarioResult result) {
+	public static final String BasePath = "levels/generated/";
+	
+    public static void printResults(MarioResult result, String pFilePath) {
         System.out.println("****************************************************************");
         System.out.println("Game Status: " + result.getGameStatus().toString() +
                 " Percentage Completion: " + result.getCompletionPercentage());
@@ -24,24 +26,26 @@ public class GenerateLevel {
                 " Falls: " + result.getKillsByFall() + ")");
         System.out.println("Bricks: " + result.getNumDestroyedBricks() + " Jumps: " + result.getNumJumps() +
                 " Max X Jump: " + result.getMaxXJump() + " Max Air Time: " + result.getMaxJumpAirTime());
-        System.out.println("****************************************************************");
+        System.out.println("**************************************************************");
+        LevelMatrixConverter.printStructuralCoherence(pFilePath, false);
+        
     }
 
     public static void main(String[] args) {
-        MarioLevelGenerator generator = new levelGenerators.GAN.LevelGenerator();
+        MarioLevelGenerator generator = new levelGenerators.Flat.LevelGenerator();
         String level = generator.getGeneratedLevel(new MarioLevelModel(150, 16), new MarioTimer(5 * 60 * 60 * 1000));
 
-        WriteMap(level,generator);
+        String lFilename = WriteMap(level,generator);
 
         MarioGame game = new MarioGame();
-        printResults(game.runGame(new agents.robinBaumgarten.Agent(), level, 20, 0, true));
+        printResults(game.runGame(new agents.robinBaumgarten.Agent(), level, 20, 0, true),lFilename);
     }
     
 
-    public static void WriteMap(String pLevel, MarioLevelGenerator generator) {
-        String baseName = generator.getGeneratorName();
-        String dirPath = "levels/generated/" + baseName + '/';
-
+    public static String WriteMap(String pLevel, MarioLevelGenerator pGenerator) {
+        String baseName = pGenerator.getGeneratorName();
+        String dirPath =  BasePath + baseName + '/';
+        String lPath = "";
         int nextIndex = 1;
 
         try {
@@ -60,13 +64,16 @@ public class GenerateLevel {
                 }
             }
 
-            String filename = dirPath + nextIndex + ".txt";
-            FileWriter writer = new FileWriter(filename);
+            lPath = dirPath + nextIndex + ".txt";
+            FileWriter writer = new FileWriter(lPath);
             writer.write(pLevel);
             writer.close();
-            System.out.println("Niveau sauvegardé dans " + filename);
+            System.out.println("Niveau sauvegardé dans " + lPath);
+
         } catch (IOException e) {
             System.err.println("Erreur lors de la sauvegarde du niveau : " + e.getMessage());
         }
+        
+        return lPath;
     }
 }

@@ -168,10 +168,9 @@ public class LevelMatrixConverter {
             System.out.println();
         }
     }
-
-    public static void main(String[] args) {
-        String filepath = "./levels/generated/FlatGroundGenerator/10.txt";
-        String levelString = getLevel(filepath);
+    
+    public static double printStructuralCoherence(String pFilepath, boolean pShowMatrix) {
+        String levelString = getLevel(pFilepath);
 
         String[] lines = levelString.split("\n");
         int width = lines[0].length();
@@ -181,6 +180,8 @@ public class LevelMatrixConverter {
         level.copyFromString(levelString);
 
         boolean[][] accessibility = computeAccessibility(level);
+        
+        if(pShowMatrix)
         printAccessibility(accessibility);
 
         int accessible = 0, total = 0;
@@ -191,5 +192,12 @@ public class LevelMatrixConverter {
             }
         double coherence = total > 0 ? (double) accessible / total : 0.0;
         System.out.println("Cohérence structurelle : " + coherence);
+        return coherence;
+    }
+
+
+    public static void main(String[] args) {
+        String filepath = "./levels/generated/FlatGroundGenerator/10.txt";
+        printStructuralCoherence(filepath, true);
     }
 }
