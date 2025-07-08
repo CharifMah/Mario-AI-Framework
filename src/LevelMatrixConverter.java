@@ -7,9 +7,9 @@ import java.util.*;
 import engine.core.MarioLevelModel;
 
 public class LevelMatrixConverter {
-
+	private static final String LevelPath = "./levels/generated/GANGeneratorTF/5.txt";
     private static final int MAX_JUMP = 6;
-    private static final int MAX_JUMP_X = 4; // portée horizontale du saut oblique (3+1)
+    private static final int MAX_JUMP_X = 6; // portée horizontale du saut oblique (3+1)
 
     public static String getLevel(String filepath) {
         String content = "";
@@ -197,7 +197,6 @@ public class LevelMatrixConverter {
 
 
     public static void main(String[] args) {
-        String filepath = "./levels/generated/FlatGroundGenerator/10.txt";
-        printStructuralCoherence(filepath, true);
+        printStructuralCoherence(LevelPath, true);
     }
 }
