@@ -76,18 +76,19 @@ public class LevelGenerator implements MarioLevelGenerator {
             // --------- Correction : noms exacts pour TensorFlow Java ---------
             Tensor output = this.model.session()
                     .runner()
-                    .feed("serving_default_keras_tensor:0", zTensor)
-                    .fetch("StatefulPartitionedCall_1:0")
+                    .feed("serving_default_input_1", zTensor)
+                    .fetch("StatefulPartitionedCall")
                     .run().get(0);
 
             // Récupération des valeurs via getFloat
-            TFloat32 outT = (TFloat32) output;
+            // TFloat32 outT = (TFloat32) output;
+            try (org.tensorflow.types.TFloat16 outT16 = (org.tensorflow.types.TFloat16) output) {
             for (int y = 0; y < HEIGHT; y++) {
                 for (int x = 0; x < WIDTH; x++) {
                     int maxIdx = 0;
-                    float maxVal = outT.getFloat(0, y, x, 0);
+                    float maxVal = outT16.getFloat(0, y, x, 0);
                     for (int k = 1; k < nSymbols; k++) {
-                        float val = outT.getFloat(0, y, x, k);
+                        float val = outT16.getFloat(0, y, x, k);
                         if (val > maxVal) {
                             maxVal = val;
                             maxIdx = k;
@@ -96,6 +97,7 @@ public class LevelGenerator implements MarioLevelGenerator {
                     char tile = intToChar.getOrDefault(maxIdx, '-');
                     model.setBlock(x, y, tile);
                 }
+            }
             }
             output.close();
         }

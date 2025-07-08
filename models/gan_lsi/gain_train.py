@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-gan_tf_basic_improved_all_steps.py
+gain_train.py
 
-Même GAN « classique » pour niveaux Mario, avec :
- - Label smoothing (±30 %) et bruit (σ=0.07) sur les entrées du discriminateur
- - 4 updates du générateur par update du discriminateur
- - Learning rates séparés (D:1e-5, G:3e-4)
+Wasserstein GAN with Gradient Penalty pour niveaux Mario :
+ - Critic linéaire (pas de sigmoïde)
+ - Loss Wasserstein : E[C(fake)]−E[C(real)] + λ·GP
+ - Gradient penalty (λ=10)
+ - N_CRITIC steps par update du générateur
+ - Learning rates séparés (C:1e-5, G:3e-4)
  - Mixed precision si GPU
  - MirroredStrategy multi-GPU
  - XLA compilation du train_step
- - tf.data pipeline optimisée
- - Logging à chaque step
- - Checkpoints en SavedModel format
+ - Logging complet par batch en ASCII
 """
 import os
 import tensorflow as tf
-from datetime import datetime
+import numpy as np
 from data_utils import load_levels, build_vocabulary, encode_levels, save_mapping, HEIGHT, WIDTH
 
 # 1) GPU & mixed precision
@@ -25,23 +25,21 @@ gpus = tf.config.list_physical_devices('GPU')
 if gpus:
     for g in gpus:
         tf.config.experimental.set_memory_growth(g, True)
-    print("→ GPU détecté :", gpus)
+    print("-> GPU détecté:", gpus)
 policy = 'mixed_float16' if gpus else 'float32'
 from tensorflow.keras import mixed_precision
 mixed_precision.set_global_policy(policy)
-print("→ DType policy :", policy)
+print("-> DType policy:", policy)
 strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else tf.distribute.get_strategy()
 
 # 2) Hyper-paramètres
-LATENT_DIM      = 32
-BATCH_SIZE      = 64 if gpus else 32
-EPOCHS          = 500
-LR_D            = 1e-5
-LR_G            = 3e-4
-LABEL_SMOOTHING = 0.3
-NOISE_STDDEV    = 0.07
-GEN_UPDATES     = 4
-CKPT_FREQ       = 100       # checkpoint toutes les CKPT_FREQ époques
+LATENT_DIM   = 32
+BATCH_SIZE   = 64 if gpus else 32
+EPOCHS       = 500
+LR_C         = 1e-5
+LR_G         = 3e-4
+N_CRITIC     = 5     # updates du critic par update du générateur
+LAMBDA_GP    = 10.0  # coefficient du gradient penalty
 
 # 3) Data
 levels = load_levels(os.path.join("..","..","levels","hopper"))
@@ -58,99 +56,95 @@ dataset = (
       .prefetch(tf.data.AUTOTUNE)
 )
 steps_per_epoch = len(levels) // BATCH_SIZE
+it = iter(dataset)
 
-# 4) Models & optimizers
 with strategy.scope():
+    # 4) Modèles
     def make_generator():
         inp = tf.keras.Input((LATENT_DIM,))
         x = tf.keras.layers.Dense(256, activation='relu')(inp)
         x = tf.keras.layers.Dense(HEIGHT * WIDTH * vocab_size)(x)
         x = tf.keras.layers.Reshape((HEIGHT, WIDTH, vocab_size))(x)
-        return tf.keras.Model(inp, tf.keras.layers.Softmax(axis=-1)(x), name="Generator")
+        out = tf.keras.layers.Softmax(axis=-1)(x)
+        return tf.keras.Model(inp, out, name="Generator")
 
-    def make_discriminator():
+    def make_critic():
         inp = tf.keras.Input((HEIGHT, WIDTH, vocab_size))
         x = tf.keras.layers.Conv2D(64, 3, padding='same', activation='relu')(inp)
         x = tf.keras.layers.Flatten()(x)
         x = tf.keras.layers.Dense(64, activation='relu')(x)
-        return tf.keras.Model(inp, tf.keras.layers.Dense(1, activation='sigmoid')(x), name="Discriminator")
+        out = tf.keras.layers.Dense(1, activation='linear')(x)
+        return tf.keras.Model(inp, out, name="Critic")
 
-    G   = make_generator()
-    D   = make_discriminator()
-    optD = tf.keras.optimizers.Adam(LR_D)
-    optG = tf.keras.optimizers.Adam(LR_G)
-    bce  = tf.keras.losses.BinaryCrossentropy(from_logits=False)
+    G = make_generator()
+    C = make_critic()
+    optC = tf.keras.optimizers.Adam(LR_C, beta_1=0.5, beta_2=0.9)
+    optG = tf.keras.optimizers.Adam(LR_G, beta_1=0.5, beta_2=0.9)
 
-# 5) TensorBoard & Checkpointing
-logdir = os.path.join("logs", datetime.now().strftime("%Y%m%d-%H%M%S"))
-writer = tf.summary.create_file_writer(logdir)
-ckpt_dir = "checkpoints"
-os.makedirs(ckpt_dir, exist_ok=True)
+    # fonction pour le gradient penalty (calcul en float32)
+    def gradient_penalty(real, fake):
+        real_f = tf.cast(real, tf.float32)
+        fake_f = tf.cast(fake, tf.float32)
+        alpha = tf.random.uniform([tf.shape(real_f)[0], 1, 1, 1],
+                                   0.0, 1.0, dtype=real_f.dtype)
+        interp = real_f + alpha * (fake_f - real_f)
+        with tf.GradientTape() as gp_tape:
+            gp_tape.watch(interp)
+            pred = C(interp, training=True)
+        grads = gp_tape.gradient(pred, interp)
+        norm = tf.sqrt(tf.reduce_sum(tf.square(grads), axis=[1,2,3]))
+        gp = tf.reduce_mean((norm - 1.0)**2)
+        return gp
 
-# 6) train_step compilé XLA
+# 5) train_step compilé XLA
 @tf.function(experimental_compile=True)
 def train_step(real_batch):
-    bs = tf.shape(real_batch)[0]
+    # --- Critic updates ---
+    for _ in range(N_CRITIC):
+        noise = tf.random.normal((BATCH_SIZE, LATENT_DIM), dtype=real_batch.dtype)
+        with tf.GradientTape() as tapeC:
+            fake = G(noise, training=True)
+            real_score = C(real_batch, training=True)
+            fake_score = C(fake, training=True)
+            gp = gradient_penalty(real_batch, fake)
 
-    # — Discriminator —
-    noise = tf.random.normal((bs, LATENT_DIM), dtype=real_batch.dtype)
-    with tf.GradientTape() as td:
-        fake       = G(noise, training=True)
-        real_noisy = real_batch + tf.random.normal(
-            tf.shape(real_batch), stddev=NOISE_STDDEV, dtype=real_batch.dtype)
-        fake_noisy = fake + tf.random.normal(
-            tf.shape(fake), stddev=NOISE_STDDEV, dtype=fake.dtype)
-        real_lbl = tf.random.uniform((bs,1), 1.-LABEL_SMOOTHING, 1.0,
-                                     dtype=real_noisy.dtype)
-        fake_lbl = tf.random.uniform((bs,1), 0.0, LABEL_SMOOTHING,
-                                     dtype=fake_noisy.dtype)
-        real_out = D(real_noisy, training=True)
-        fake_out = D(fake_noisy, training=True)
-        lossD    = bce(real_lbl, real_out) + bce(fake_lbl, fake_out)
-    gradsD = td.gradient(lossD, D.trainable_variables)
-    optD.apply_gradients(zip(gradsD, D.trainable_variables))
+            # on remet tout en float16 pour la lossC
+            gp16 = tf.cast(gp, real_score.dtype)
+            lambda16 = tf.cast(LAMBDA_GP, real_score.dtype)
+            lossC = (tf.reduce_mean(fake_score)
+                     - tf.reduce_mean(real_score)
+                     + lambda16 * gp16)
 
-    # — Generator (x GEN_UPDATES) —
-    lossG = tf.constant(0.0, dtype=tf.float32)
-    for _ in range(GEN_UPDATES):
-        noise = tf.random.normal((bs, LATENT_DIM), dtype=real_batch.dtype)
-        with tf.GradientTape() as tg:
-            out    = D(G(noise, training=True), training=True)
-            loss16 = bce(tf.ones_like(out), out)
-        gradsG = tg.gradient(loss16, G.trainable_variables)
-        optG.apply_gradients(zip(gradsG, G.trainable_variables))
-        lossG += tf.cast(loss16, tf.float32)
+        gradsC = tapeC.gradient(lossC, C.trainable_variables)
+        optC.apply_gradients(zip(gradsC, C.trainable_variables))
 
-    return lossD, lossG
+    # --- Generator update ---
+    noise = tf.random.normal((BATCH_SIZE, LATENT_DIM), dtype=real_batch.dtype)
+    with tf.GradientTape() as tapeG:
+        fake = G(noise, training=True)
+        fake_score = C(fake, training=True)
+        lossG = -tf.reduce_mean(fake_score)
+    gradsG = tapeG.gradient(lossG, G.trainable_variables)
+    optG.apply_gradients(zip(gradsG, G.trainable_variables))
 
-# 7) Warm-up
+    return lossC, lossG
+
+# 6) Warm-up
 print("🔄 Warm-up compilation…")
-it = iter(dataset)
 _ = train_step(next(it))
-print("✅ Warm-up terminé — démarrage entraînement.")
+print("✅ Warm-up terminé, début entraînement.")
 
-# 8) Boucle d’entraînement
-global_step = 0
+# 7) Boucle d’entraînement
 for epoch in range(1, EPOCHS+1):
     for step in range(1, steps_per_epoch+1):
-        global_step += 1
-        real_batch = next(it)
-        lossD, lossG = train_step(real_batch)
+        c_l, g_l = train_step(next(it))
+        print(f"Epoch {epoch}/{EPOCHS} - step {step}/{steps_per_epoch} - c={c_l:.4f} - g={g_l:.4f}")
+    print(f"→ Epoch {epoch} terminé: last c={c_l:.4f}, g={g_l:.4f}")
 
-        # log TensorBoard + console à chaque step
-        with writer.as_default():
-            tf.summary.scalar("lossD", lossD, step=global_step)
-            tf.summary.scalar("lossG", lossG, step=global_step)
-        print(f"Epoch {epoch}/{EPOCHS} · step {step}/{steps_per_epoch} "
-              f"(global {global_step}) · d={lossD:.4f} · g={lossG:.4f}")
-
-    # checkpoint en SavedModel (identique à votre ancien G.save)
-    if epoch % CKPT_FREQ == 0 or epoch == EPOCHS:
-        ckpt_path = os.path.join(ckpt_dir, f"G_epoch_{epoch}")
-        G.save(ckpt_path)
-        print(f"→ Checkpoint ép {epoch} sauvegardé dans {ckpt_path}")
-
-# 9) Sauvegarde finale
-G.save("gan_savedmodel")              # crée le dossier gan_savedmodel/
+# 8) Sauvegarde
+ckpt_dir = "checkpoints"
+os.makedirs(ckpt_dir, exist_ok=True)
+G.save("gan_savedmodel")
 save_mapping(c2i, i2c, "char_mapping.json")
-print("✔️ Entraînement terminé. Modèle et mapping sauvegardés.")
+print("✔️ Modèle et mapping sauvegardés.")
+
