@@ -6,6 +6,8 @@ import engine.core.MarioGame;
 import engine.core.MarioResult;
 
 public class PlayLevel {
+	public static final String LevelPath = "./levels/generated/FlatGroundGenerator/10.txt";
+
 	public static void printResults(MarioResult result) {
 	    System.out.println("============================================================");
 	    System.out.println("                      MARIO GAME RESULTS                    ");
@@ -31,6 +33,7 @@ public class PlayLevel {
 	    System.out.printf("%-25s : %d\n", "Kills by Shell", result.getKillsByShell());
 	    System.out.printf("%-25s : %d\n", "Kills by Fall", result.getKillsByFall());
 	    System.out.println("============================================================");
+	    LevelMatrixConverter.printStructuralCoherence(LevelPath, true);
 	}
 
 
@@ -46,6 +49,6 @@ public class PlayLevel {
     public static void main(String[] args) {
         MarioGame game = new MarioGame();
         // printResults(game.playGame(getLevel("../levels/original/lvl-1.txt"), 200, 0));
-        printResults(game.runGame(new agents.robinBaumgarten.Agent(), getLevel("./levels/generated/GANGeneratorTF/3.txt"), 20, 0, true));
+        printResults(game.runGame(new agents.robinBaumgarten.Agent(), getLevel(LevelPath), 20, 0, true));
     }
 }

@@ -9,7 +9,7 @@ import engine.core.MarioLevelModel;
 public class LevelMatrixConverter {
 
     private static final int MAX_JUMP = 6;
-    private static final int MAX_JUMP_X = 3; // portée horizontale du saut oblique
+    private static final int MAX_JUMP_X = 4; // portée horizontale du saut oblique (3+1)
 
     public static String getLevel(String filepath) {
         String content = "";
