@@ -61,6 +61,10 @@ If you want to play the level by yourself or change the AI playing agent check t
   cd /models/LSTMs
   source keras_venv/bin/activate
   saved_model_cli show --dir . --all
+
+  conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
+  pip install numpy==1.26.4
+  pip install "tensorflow<2.11"
   ```
 
 
