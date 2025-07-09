@@ -13,7 +13,7 @@ SEQUENCE_LENGTH = 100
 EPOCHS = 80
 BATCH_SIZE = 64
 MODEL_PATH = "mario_lstm_savedmodel"
-CHECKPOINT_PATH = "mario_lstm_checkpoint.keras"
+CHECKPOINT_PATH = "mario_lstm_checkpoint"
 MAPPING_PATH = "char_mapping.json"
 DEFAULT_LEVEL_PATH = "../../levels/train1/"
 
