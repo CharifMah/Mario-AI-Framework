@@ -25,8 +25,9 @@ public class LevelGenerator implements MarioLevelGenerator {
     private Map<Character, Integer> charToInt;
     private Map<Integer, Character> intToChar;
     private int nVocab;
-    private String inputTensorName = "serving_default_keras_tensor:0";
-    private String outputTensorName = "StatefulPartitionedCall_1:0";
+    private String inputTensorName = "serving_default_input_1:0";
+    private String outputTensorName = "StatefulPartitionedCall:0";
+    private double temperature = 1.0; // Ajuste cette valeur pour plus/moins de diversité
 
     @SuppressWarnings("unchecked")
     public LevelGenerator() {
@@ -109,21 +110,41 @@ public class LevelGenerator implements MarioLevelGenerator {
                 FloatNdArray nd = NdArrays.ofFloats(Shape.of(1, nVocab));
                 outputT.copyTo(nd);
 
-                // Trouver l'indice du max dans la sortie softmax [1, nVocab]
-                float maxVal = -Float.MAX_VALUE;
-                int maxIdx = 0;
+                // --- Sampling au lieu d'argmax ---
+                float[] probs = new float[nVocab];
                 for (int k = 0; k < nVocab; k++) {
-                    float val = nd.getFloat(0, k);
-                    if (val > maxVal) {
-                        maxVal = val;
-                        maxIdx = k;
-                    }
+                    probs[k] = nd.getFloat(0, k);
                 }
-                generated.append(intToChar.get(maxIdx));
+                int sampledIdx = sampleFromDistribution(probs, temperature);
+                generated.append(intToChar.get(sampledIdx));
                 output.close();
             }
         }
         return generated.substring(SEQUENCE_LENGTH); // On ignore le seed initial
+    }
+
+    // Sampling stochastique avec température
+    private int sampleFromDistribution(float[] probs, double temperature) {
+        // Applique la température
+        double[] adjusted = new double[probs.length];
+        double sum = 0.0;
+        for (int i = 0; i < probs.length; i++) {
+            // Pour éviter NaN si prob==0
+            adjusted[i] = Math.pow(Math.max(probs[i], 1e-8), 1.0 / temperature);
+            sum += adjusted[i];
+        }
+        // Normalise
+        for (int i = 0; i < adjusted.length; i++) {
+            adjusted[i] /= sum;
+        }
+        // Tirage aléatoire
+        double r = Math.random();
+        double cumulative = 0.0;
+        for (int i = 0; i < adjusted.length; i++) {
+            cumulative += adjusted[i];
+            if (r < cumulative) return i;
+        }
+        return adjusted.length - 1; // fallback
     }
 
     @Override
