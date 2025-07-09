@@ -25,8 +25,8 @@ public class LevelGenerator implements MarioLevelGenerator {
     private Map<Character, Integer> charToInt;
     private Map<Integer, Character> intToChar;
     private int nVocab;
-    private String inputTensorName = "serving_default_keras_tensor:0";
-    private String outputTensorName = "StatefulPartitionedCall_1:0";
+    private String inputTensorName = "serving_default_input_1:0";
+    private String outputTensorName = "StatefulPartitionedCall:0";
 
     @SuppressWarnings("unchecked")
     public LevelGenerator() {

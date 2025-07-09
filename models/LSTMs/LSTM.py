@@ -10,9 +10,9 @@ from keras.layers import LSTM, Dense, Dropout, Input
 from keras.utils import to_categorical
 
 # === PARAMÈTRES ===
-SEQUENCE_LENGTH = 10
-EPOCHS = 5
-BATCH_SIZE = 16
+SEQUENCE_LENGTH = 100
+EPOCHS = 308
+BATCH_SIZE = 128
 MODEL_PATH = "mario_lstm_savedmodel"
 MAPPING_PATH = "char_mapping.json"
 DEFAULT_LEVEL_PATH = "../../levels/train1/"
@@ -80,7 +80,7 @@ def main():
     print("Entraînement du modèle...")
     model.fit(X, y, epochs=EPOCHS, batch_size=BATCH_SIZE)
     print(f"Sauvegarde du modèle au format SavedModel dans {MODEL_PATH} ...")
-    model.export(MODEL_PATH)  # Sauvegarde au format SavedModel (dossier)
+    model.save(MODEL_PATH)  # Sauvegarde au format SavedModel (dossier)
     print(f"Sauvegarde du mapping caractères <-> entiers dans {MAPPING_PATH} ...")
     with open(MAPPING_PATH, "w") as f:
         json.dump({"char_to_int": char_to_int, "int_to_char": int_to_char}, f)
