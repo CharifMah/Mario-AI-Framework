@@ -6,12 +6,14 @@ import tensorflow as tf
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout, Input
 from keras.utils import to_categorical
+from keras.callbacks import ModelCheckpoint
 
 # === PARAMÈTRES AJUSTÉS ===
 SEQUENCE_LENGTH = 100
-EPOCHS = 80         
-BATCH_SIZE = 64     
+EPOCHS = 80
+BATCH_SIZE = 64
 MODEL_PATH = "mario_lstm_savedmodel"
+CHECKPOINT_PATH = "mario_lstm_checkpoint.keras"
 MAPPING_PATH = "char_mapping.json"
 DEFAULT_LEVEL_PATH = "../../levels/train1/"
 
@@ -72,9 +74,23 @@ def main():
     print(f"Nombre de séquences : {len(X)}")
     print("Construction du modèle...")
     model = build_model(SEQUENCE_LENGTH, n_vocab)
+
+    # Callback pour sauvegarder le modèle à chaque époque
+    checkpoint = ModelCheckpoint(
+        CHECKPOINT_PATH,
+        save_best_only=False,      # Sauvegarde à chaque époque, pas seulement le meilleur
+        save_weights_only=False,
+        save_freq='epoch',
+        verbose=1
+    )
+
     print("Entraînement du modèle...")
-    model.fit(X, y, epochs=EPOCHS, batch_size=BATCH_SIZE)
-    print(f"Sauvegarde du modèle au format SavedModel dans {MODEL_PATH} ...")
+    try:
+        model.fit(X, y, epochs=EPOCHS, batch_size=BATCH_SIZE, callbacks=[checkpoint])
+    except KeyboardInterrupt:
+        print("\nEntraînement interrompu manuellement. Dernier modèle sauvegardé dans", CHECKPOINT_PATH)
+
+    print(f"Sauvegarde du modèle final au format SavedModel dans {MODEL_PATH} ...")
     model.save(MODEL_PATH)
     print(f"Sauvegarde du mapping caractères <-> entiers dans {MAPPING_PATH} ...")
     with open(MAPPING_PATH, "w") as f:
