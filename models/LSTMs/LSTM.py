@@ -1,6 +1,4 @@
 import os
-#os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
 import numpy as np
 import json
 import sys
@@ -9,16 +7,15 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout, Input
 from keras.utils import to_categorical
 
-# === PARAMÈTRES ===
+# === PARAMÈTRES AJUSTÉS ===
 SEQUENCE_LENGTH = 100
-EPOCHS = 308
-BATCH_SIZE = 128
+EPOCHS = 80         
+BATCH_SIZE = 64     
 MODEL_PATH = "mario_lstm_savedmodel"
 MAPPING_PATH = "char_mapping.json"
 DEFAULT_LEVEL_PATH = "../../levels/train1/"
 
 def load_levels(path):
-    """Charge une carte unique ou toutes les cartes d'un dossier."""
     if os.path.isfile(path):
         with open(path, "r") as f:
             lines = [line.rstrip('\n') for line in f]
@@ -52,18 +49,16 @@ def prepare_sequences(level_text, sequence_length):
 
 def build_model(sequence_length, n_vocab):
     model = Sequential()
-    model.add(Input(shape=(sequence_length, 1)))  # Entrée : séquence de longueur sequence_length, 1 feature par pas de temps
-    model.add(LSTM(256, return_sequences=True))   # 1ère couche LSTM, retourne toute la séquence
-    model.add(Dropout(0.2))                       # Dropout pour éviter le surapprentissage
-    model.add(LSTM(256))                          # 2ème couche LSTM, retourne la dernière sortie seulement
-    model.add(Dropout(0.2))                       # Dropout
-    model.add(Dense(n_vocab, activation='softmax'))  # Couche de sortie dense : une probabilité par tuile/caractère possible
+    model.add(Input(shape=(sequence_length, 1)))
+    model.add(LSTM(128, return_sequences=True))
+    model.add(Dropout(0.2))
+    model.add(LSTM(128))
+    model.add(Dropout(0.2))
+    model.add(Dense(n_vocab, activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam')
     return model
 
-
 def main():
-    # Utilise le chemin par défaut si aucun argument n'est donné
     if len(sys.argv) == 2:
         path = sys.argv[1]
     else:
@@ -80,10 +75,13 @@ def main():
     print("Entraînement du modèle...")
     model.fit(X, y, epochs=EPOCHS, batch_size=BATCH_SIZE)
     print(f"Sauvegarde du modèle au format SavedModel dans {MODEL_PATH} ...")
-    model.save(MODEL_PATH)  # Sauvegarde au format SavedModel (dossier)
+    model.save(MODEL_PATH)
     print(f"Sauvegarde du mapping caractères <-> entiers dans {MAPPING_PATH} ...")
     with open(MAPPING_PATH, "w") as f:
-        json.dump({"char_to_int": char_to_int, "int_to_char": int_to_char}, f)
+        json.dump({
+            "char_to_int": {str(k): v for k, v in char_to_int.items()},
+            "int_to_char": {str(k): v for k, v in int_to_char.items()}
+        }, f)
     print("Terminé !")
 
 if __name__ == "__main__":
