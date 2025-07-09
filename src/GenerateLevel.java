@@ -38,7 +38,7 @@ public class GenerateLevel {
         String lFilename = WriteMap(level,generator);
 
         MarioGame game = new MarioGame();
-        printResults(game.runGame(new agents.robinBaumgarten.Agent(), level, 20, 0, true),lFilename);
+        printResults(game.runGame(LevelConfig.Agent, level, 20, 0, true),lFilename);
     }
     
 

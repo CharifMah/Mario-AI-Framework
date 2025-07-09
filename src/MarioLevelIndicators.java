@@ -144,9 +144,7 @@ public class MarioLevelIndicators {
 
     // --- Exemple d'utilisation ---
     public static void main(String[] args) {
-        // Paramètres à adapter selon tes niveaux
-        String path = "./levels/generated/GANGeneratorTF/6.txt";
-        printMapIndicator(path);
+        printMapIndicator(LevelConfig.LevelPath);
     }
     
 }

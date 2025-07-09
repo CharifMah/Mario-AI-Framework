@@ -6,7 +6,6 @@ import engine.core.MarioGame;
 import engine.core.MarioResult;
 
 public class PlayLevel {
-	public static final String LevelPath = "./levels/generated/GANGeneratorTF/9.txt";
 
 	public static void printResults(MarioResult result) {
 	    System.out.println("============================================================");
@@ -33,7 +32,8 @@ public class PlayLevel {
 	    System.out.printf("%-25s : %d\n", "Kills by Shell", result.getKillsByShell());
 	    System.out.printf("%-25s : %d\n", "Kills by Fall", result.getKillsByFall());
 	    System.out.println("============================================================");
-	    LevelMatrixConverter.printStructuralCoherence(LevelPath, true);
+	    LevelMatrixConverter.printStructuralCoherence(LevelConfig.LevelPath, true);
+	    MarioLevelIndicators.printMapIndicator(LevelConfig.LevelPath);
 	}
 
 
@@ -49,6 +49,6 @@ public class PlayLevel {
     public static void main(String[] args) {
         MarioGame game = new MarioGame();
         // printResults(game.playGame(getLevel("../levels/original/lvl-1.txt"), 200, 0));
-        printResults(game.runGame(new agents.andySloane.Agent(), getLevel(LevelPath), 20, 0, true));
+        printResults(game.runGame(LevelConfig.Agent, getLevel(LevelConfig.LevelPath), 20, 0, true));
     }
 }
