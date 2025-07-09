@@ -1,0 +1,2 @@
+LevelPath,GameStatus,Completion,Lives,Coins,TimeLeft,Mushrooms,FireFlowers,TileCoins,BricksDestroyed,Jumps,MaxXJump,MaxJumpAirTime,KillsTotal,KillsStomp,KillsFire,KillsShell,KillsFall,Coherence,Leniency,Linearity,GroundSegments,StructuralDiversity,UnjumpableHoles,TotalVerticalHoles,LargeVerticalHolesDetail
+"./levels/generated/GANGeneratorTF/8.txt",WIN,100.00,0,0,14,0,0,0,0,6,152.73,13,2,0,0,0,2,1.00,-43,0.973260,17,37.00,0,8,""
