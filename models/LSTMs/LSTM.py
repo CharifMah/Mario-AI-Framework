@@ -11,11 +11,11 @@ from keras.utils import to_categorical
 
 # === PARAMÈTRES ===
 SEQUENCE_LENGTH = 100
-EPOCHS = 80
-BATCH_SIZE = 128
+EPOCHS = 20
+BATCH_SIZE = 64
 MODEL_PATH = "mario_lstm_savedmodel"
 MAPPING_PATH = "char_mapping.json"
-DEFAULT_LEVEL_PATH = "../../levels/train2/"
+DEFAULT_LEVEL_PATH = "../../levels/train1/"
 
 def load_levels(path):
     """Charge une carte unique ou toutes les cartes d'un dossier."""
@@ -53,10 +53,12 @@ def prepare_sequences(level_text, sequence_length):
 def build_model(sequence_length, n_vocab):
     model = Sequential()
     model.add(Input(shape=(sequence_length, 1)))  # Entrée : séquence de longueur sequence_length, 1 feature par pas de temps
-    model.add(LSTM(256, return_sequences=True))   # 1ère couche LSTM, retourne toute la séquence
+    #model.add(LSTM(256, return_sequences=True))   # 1ère couche LSTM, retourne toute la séquence
+
+    model.add(LSTM(64, return_sequences=False))   # 1ère couche LSTM, retourne toute la séquence
     model.add(Dropout(0.2))                       # Dropout pour éviter le surapprentissage
-    model.add(LSTM(256))                          # 2ème couche LSTM, retourne la dernière sortie seulement
-    model.add(Dropout(0.2))                       # Dropout
+   # model.add(LSTM(256))                          # 2ème couche LSTM, retourne la dernière sortie seulement
+    #model.add(Dropout(0.2))                       # Dropout
     model.add(Dense(n_vocab, activation='softmax'))  # Couche de sortie dense : une probabilité par tuile/caractère possible
     model.compile(loss='categorical_crossentropy', optimizer='adam')
     return model
