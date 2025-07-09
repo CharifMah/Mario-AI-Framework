@@ -40,3 +40,22 @@ Symbol Reference:
 - '>': Top right of empty pipe
 - '[': Left of empty pipe
 - ']': Right of empty pipe
+
+
+
+Les Générateurs Testés
+Notch generator : Générateur par défaut d’Infinite Mario Bros, place les éléments selon des probabilités.
+
+Parameterized Notch : Version paramétrable du précédent (contrôle du nombre d’ennemis, trous, etc.).
+
+Hopper : Génère des niveaux adaptatifs, alternant parties aléatoires et parties pré-conçues.
+
+Launchpad : Générateur basé sur la grammaire et le rythme des niveaux.
+
+ORE (Occupancy-Regulated Extension) : Assemble des petits morceaux de niveaux pré-conçus.
+
+Pattern-based : Utilise l’évolution pour maximiser la présence de certains motifs (patterns) dans le niveau.
+
+Grammatical Evolution (GE) : Utilise l’évolution et des grammaires de design.
+
+Niveaux originaux de SMB : Les vrais niveaux du jeu, pour référence.

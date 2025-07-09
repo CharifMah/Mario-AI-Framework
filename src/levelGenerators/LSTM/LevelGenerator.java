@@ -27,7 +27,7 @@ public class LevelGenerator implements MarioLevelGenerator {
     private int nVocab;
     private String inputTensorName = "serving_default_input_1:0";
     private String outputTensorName = "StatefulPartitionedCall:0";
-    private double temperature = 1.0; // Ajuste cette valeur pour plus/moins de diversité
+    private double temperature = 0.7; // Ajuste cette valeur pour plus/moins de diversité
 
     @SuppressWarnings("unchecked")
     public LevelGenerator() {
