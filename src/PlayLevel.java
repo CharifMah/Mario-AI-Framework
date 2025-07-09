@@ -88,7 +88,7 @@ public class PlayLevel {
 	        // Écrire l'en-tête une seule fois
 	        if (!fileExists) {
 	            writer.println(
-	                "LevelPath,AgentName" +
+	                "LevelPath,AgentName," +
 	                "GameStatus,Completion,Lives,Coins,TimeLeft," +
 	                "Mushrooms,FireFlowers,TileCoins,BricksDestroyed,Jumps,MaxXJump,MaxJumpAirTime," +
 	                "KillsTotal,KillsStomp,KillsFire,KillsShell,KillsFall," +
