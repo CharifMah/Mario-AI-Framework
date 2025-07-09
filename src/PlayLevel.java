@@ -88,7 +88,7 @@ public class PlayLevel {
 	        // Écrire l'en-tête une seule fois
 	        if (!fileExists) {
 	            writer.println(
-	                "LevelPath," + // <-- Ajout ici
+	                "LevelPath,AgentName" +
 	                "GameStatus,Completion,Lives,Coins,TimeLeft," +
 	                "Mushrooms,FireFlowers,TileCoins,BricksDestroyed,Jumps,MaxXJump,MaxJumpAirTime," +
 	                "KillsTotal,KillsStomp,KillsFire,KillsShell,KillsFall," +
@@ -100,12 +100,14 @@ public class PlayLevel {
 	        // Ligne de données, toujours dans le même ordre que l'en-tête
 	        writer.printf(Locale.US,
 	        	    "\"%s\"," +      // LevelPath
+    	    		"\"%s\"," +      // AgentName
 	        	    "%s,%.2f,%d,%d,%d," +      
 	        	    "%d,%d,%d,%d,%d,%.2f,%d," +
 	        	    "%d,%d,%d,%d,%d," +
 	        	    "%.2f,%.0f,%.6f,%d,%.2f," +
 	        	    "%d,%d,\"%s\"\n",
 	        	    LevelConfig.LevelPath,
+	        	    LevelConfig.Agent.getAgentName(),
 	        	    result.getGameStatus(),
 	        	    100 * result.getCompletionPercentage(),
 	        	    result.getCurrentLives(),
