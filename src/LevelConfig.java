@@ -7,11 +7,11 @@ import engine.core.MarioLevelGenerator;
 import engine.core.MarioAgent;
 
 public class LevelConfig {
-	public final static MarioAgent Agent = new agents.robinBaumgarten.Agent();
+	public final static MarioAgent Agent = new agents.andySloane.Agent();
 	
-	public final static String LevelPath = "./levels/original/lvl-1.txt";
+	public final static String LevelPath = "./levels/original/lvl-14.txt";
 	
-	public final static Boolean isBatchPlay = true;
+	public final static Boolean isBatchPlay = false;
 	
     public final static String LevelFolder = "./levels/original/";
     
