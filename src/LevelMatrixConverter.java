@@ -168,8 +168,9 @@ public class LevelMatrixConverter {
         }
     }
     
-    public static double printStructuralCoherence(String pFilepath, boolean pShowMatrix) {
-        String levelString = getLevel(pFilepath);
+    public static void printStructuralCoherence(String pFilepath, boolean pShowMatrix) {
+
+    	String levelString = getLevel(pFilepath);
 
         String[] lines = levelString.split("\n");
         int width = lines[0].length();
@@ -177,12 +178,17 @@ public class LevelMatrixConverter {
 
         MarioLevelModel level = new MarioLevelModel(width, height);
         level.copyFromString(levelString);
-
-        boolean[][] accessibility = computeAccessibility(level);
         
         if(pShowMatrix)
-        printAccessibility(accessibility);
+        printAccessibility(computeAccessibility(level));
 
+        System.out.println("Cohérence structurelle : " + getCoherence(level));
+    }
+    
+    public static double getCoherence(MarioLevelModel level)
+    {
+        boolean[][] accessibility = computeAccessibility(level);
+        
         int accessible = 0, total = 0;
         for (int x = 0; x < level.getWidth(); x++)
             for (int y = 0; y < level.getHeight(); y++) {
@@ -190,7 +196,6 @@ public class LevelMatrixConverter {
                 if (accessibility[x][y]) accessible++;
             }
         double coherence = total > 0 ? (double) accessible / total : 0.0;
-        System.out.println("Cohérence structurelle : " + coherence);
         return coherence;
     }
 

@@ -65,7 +65,7 @@ public class PlayLevel {
 	    boolean fileExists = new File(filePath).exists();
 
 	    // Calcul des métriques
-	    double coherence = LevelMatrixConverter.printStructuralCoherence(LevelConfig.LevelPath, false); // getter, pas print
+	    double coherence = LevelMatrixConverter.getCoherence(level);
 	    double leniency = MarioLevelIndicators.computeLeniency(level);
 	    double linearity = MarioLevelIndicators.computeLinearity(level);
 	    int groundSegments = MarioLevelIndicators.computeGroundSegments(level);
