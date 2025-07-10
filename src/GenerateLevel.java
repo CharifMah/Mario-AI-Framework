@@ -32,15 +32,31 @@ public class GenerateLevel {
     }
 
     public static void main(String[] args) {
-        MarioLevelGenerator generator = new levelGenerators.LSTM.LevelGenerator();
-        String level = generator.getGeneratedLevel(new MarioLevelModel(150, 16), new MarioTimer(5 * 60 * 60 * 1000));
-
-        String lFilename = WriteMap(level,generator);
-
-        MarioGame game = new MarioGame();
-        printResults(game.runGame(LevelConfig.Agent, level, 20, 0, true),lFilename);
+    	if (LevelConfig.isBatchPlay) {
+    		for (int i = 0; i < LevelConfig.Iteration; i++) {
+				Generate();
+			}
+		}
+    	else
+			Generate();
     }
     
+    public static void Generate()
+    {
+        MarioLevelGenerator generator = LevelConfig.Generator;
+        String levelString = generator.getGeneratedLevel(new MarioLevelModel(150, 16), new MarioTimer(5 * 60 * 60 * 1000));
+
+        String lLevelPath = WriteMap(levelString,generator);
+
+        MarioGame game = new MarioGame();
+        MarioResult lResult = game.runGame(LevelConfig.Agent, levelString, 20, 0, true);
+        printResults(lResult,lLevelPath);
+        
+        MarioLevelModel level = new MarioLevelModel(150, 16);
+        level.copyFromString(levelString);
+        
+        PlayLevel.logResultsToCSV(lResult, level, lLevelPath,"./logen.csv");
+    }
 
     public static String WriteMap(String pLevel, MarioLevelGenerator pGenerator) {
         String baseName = pGenerator.getGeneratorName();
