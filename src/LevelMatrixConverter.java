@@ -7,7 +7,6 @@ import java.util.*;
 import engine.core.MarioLevelModel;
 
 public class LevelMatrixConverter {
-	private static final String LevelPath = "./levels/generated/GANGeneratorTF/5.txt";
     private static final int MAX_JUMP = 6;
     private static final int MAX_JUMP_X = 6; // portée horizontale du saut oblique (3+1)
 
@@ -197,6 +196,6 @@ public class LevelMatrixConverter {
 
 
     public static void main(String[] args) {
-        printStructuralCoherence(LevelPath, true);
+        printStructuralCoherence(LevelConfig.LevelPath, true);
     }
 }
