@@ -15,12 +15,24 @@ import engine.core.MarioResult;
 public class PlayLevel {
 
     public static void main(String[] args) {
+    	if(LevelConfig.isBatchPlay)
+    	{
+    		for (String LevelPath : LevelConfig.getLevelPaths()) {
+				RunGame(LevelPath);
+			}
+    	}
+    	else
+			RunGame(LevelConfig.LevelPath);
+    }
+    
+    private static void RunGame(String pLevelPath)
+    {
         MarioGame game = new MarioGame();
         // printResults(game.playGame(getLevel("../levels/original/lvl-1.txt"), 200, 0));
-        MarioResult lResult = game.runGame(LevelConfig.Agent, getLevel(LevelConfig.LevelPath), 20, 0, true);
-        printResults(lResult);
+        MarioResult lResult = game.runGame(LevelConfig.Agent, getLevel(pLevelPath), 20, 0, true);
+        printResults(lResult, pLevelPath);
         
-        String levelString = getLevel(LevelConfig.LevelPath);
+        String levelString = getLevel(pLevelPath);
         if (levelString == null || levelString.isEmpty()) {
             System.err.println("Niveau vide ou introuvable.");
             return;
@@ -29,10 +41,11 @@ public class PlayLevel {
         MarioLevelModel level = new MarioLevelModel(150, 16);
         level.copyFromString(levelString);
         
-        logResultsToCSV(lResult,level ,"./log.csv");
+        logResultsToCSV(lResult,level,pLevelPath ,"./log.csv");
     }
     
-	public static void printResults(MarioResult result) {
+    
+	public static void printResults(MarioResult result,String pLevelPath) {
 	    System.out.println("============================================================");
 	    System.out.println("                      MARIO GAME RESULTS / " + LevelConfig.Agent.getAgentName() + " / " + LevelConfig.LevelPath );
 	    System.out.println("============================================================");
@@ -57,11 +70,11 @@ public class PlayLevel {
 	    System.out.printf("%-25s : %d\n", "Kills by Shell", result.getKillsByShell());
 	    System.out.printf("%-25s : %d\n", "Kills by Fall", result.getKillsByFall());
 	    System.out.println("============================================================");
-	    LevelMatrixConverter.printStructuralCoherence(LevelConfig.LevelPath, true);
-	    MarioLevelIndicators.printMapIndicator(LevelConfig.LevelPath);
+	    LevelMatrixConverter.printStructuralCoherence(pLevelPath, true);
+	    MarioLevelIndicators.printMapIndicator(pLevelPath);
 	}
 	
-	public static void logResultsToCSV(MarioResult result, MarioLevelModel level, String filePath) {
+	public static void logResultsToCSV(MarioResult result, MarioLevelModel level,String pLevelPath, String filePath) {
 	    boolean fileExists = new File(filePath).exists();
 
 	    // Calcul des métriques
@@ -85,7 +98,6 @@ public class PlayLevel {
 	    String largeHolesString = String.join(";", largeHolesDetail);
 
 	    try (PrintWriter writer = new PrintWriter(new FileWriter(filePath, true))) {
-	        // Écrire l'en-tête une seule fois
 	        if (!fileExists) {
 	            writer.println(
 	                "LevelPath,AgentName," +
@@ -97,7 +109,6 @@ public class PlayLevel {
 	            );
 	        }
 
-	        // Ligne de données, toujours dans le même ordre que l'en-tête
 	        writer.printf(Locale.US,
 	        	    "\"%s\"," +      // LevelPath
     	    		"\"%s\"," +      // AgentName
@@ -106,7 +117,7 @@ public class PlayLevel {
 	        	    "%d,%d,%d,%d,%d," +
 	        	    "%.2f,%.0f,%.6f,%d,%.2f," +
 	        	    "%d,%d,\"%s\"\n",
-	        	    LevelConfig.LevelPath,
+	        	    pLevelPath,
 	        	    LevelConfig.Agent.getAgentName(),
 	        	    result.getGameStatus(),
 	        	    100 * result.getCompletionPercentage(),
