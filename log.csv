@@ -255,3 +255,4 @@ LevelPath,AgentName,GameStatus,Completion,Lives,Coins,TimeLeft,Mushrooms,FireFlo
 ".\levels\generated\GANGeneratorTF\97.txt","RobinBaumgartenAgent",LOSE,99.98,0,0,14,0,0,0,0,11,152.73,13,1,1,0,0,0,0.99,-45,2.016988,28,63.00,0,7,"[110-115:6]"
 ".\levels\generated\GANGeneratorTF\98.txt","RobinBaumgartenAgent",WIN,100.00,0,0,15,0,0,0,0,8,163.63,14,0,0,0,0,0,1.00,-51,2.230833,22,46.00,0,11,""
 ".\levels\generated\GANGeneratorTF\99.txt","RobinBaumgartenAgent",LOSE,99.59,0,0,14,0,0,0,0,6,185.44,16,4,4,0,0,0,1.00,-100,1.714601,33,62.00,0,12,""
+"./levels/generated/GANGeneratorTF/9.txt","RobinBaumgartenAgent",LOSE,65.28,0,0,16,0,0,0,0,5,239.88,21,6,6,0,0,0,1.00,-163,9.243197,65,176.00,0,8,""
