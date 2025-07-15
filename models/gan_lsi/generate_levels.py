@@ -7,8 +7,8 @@ import numpy as np
 import tensorflow as tf
 
 # 1) Hyper-paramètres
-LATENT_DIM = 32
-N_GEN      = 5
+LATENT_DIM = 64 #32
+N_GEN      = 20
 OUT_DIR    = "generated_levels"
 
 # 2) Création du dossier de sortie
@@ -41,9 +41,10 @@ def decode_level(encoded: np.ndarray, int_to_char: dict) -> list[str]:
 # 6) Génération et écriture
 for i in range(N_GEN):
     noise = tf.random.normal([1, LATENT_DIM])
-    pred = generator(noise, training=False)[0].numpy()      # (H, W, V)
-    level_encoded = np.argmax(pred, axis=-1)               # (H, W)
-    level_txt = decode_level(level_encoded, int_to_char)   # list[str]
+    pred = generator(noise, training=False)[0].numpy()        # (H, W, V)
+    probs = tf.nn.softmax(pred, axis=-1).numpy()              # (H, W, V)
+    level_encoded = np.argmax(probs, axis=-1)                 # (H, W)
+    level_txt = decode_level(level_encoded, int_to_char)      # list[str]
 
     out_path = os.path.join(OUT_DIR, f"level_{i}.txt")
     with open(out_path, "w", encoding="utf-8") as f:
