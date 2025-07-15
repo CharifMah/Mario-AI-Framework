@@ -9,11 +9,11 @@ import engine.core.MarioAgent;
 public class LevelConfig {
 	public final static MarioAgent Agent = new agents.andySloane.Agent();
 	
-	public final static String LevelPath = "./levels/generated/GANGeneratorTF/3.txt";
+	public final static String LevelPath = "./levels/original/lvl-14.txt";
 	
-	public final static Boolean isBatchPlay = true;
+	public final static Boolean isBatchPlay = false;
 	
-    public final static String LevelFolder = "./levels/generated/GANGeneratorTF/";
+    public final static String LevelFolder = "./levels/original/";
     
     public final static MarioLevelGenerator Generator = new levelGenerators.GAN.LevelGenerator();
     
